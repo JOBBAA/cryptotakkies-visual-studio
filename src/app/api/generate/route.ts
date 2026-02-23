@@ -1,14 +1,46 @@
 import { NextResponse } from 'next/server';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import fs from 'fs';
 
-const execAsync = promisify(exec);
+/**
+ * Proxy /api/generate requests to the Python backend on the VPS.
+ * 
+ * In development: falls back to local `uv run` execution.
+ * In production: proxies to GENERATOR_API_URL (VPS).
+ */
+
+const GENERATOR_API_URL = process.env.GENERATOR_API_URL;
 
 export async function POST(request: Request) {
     try {
         const data = await request.json();
+
+        // --- Production: proxy to VPS ---
+        if (GENERATOR_API_URL) {
+            const response = await fetch(`${GENERATOR_API_URL}/generate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+
+            if (!response.ok) {
+                const errorBody = await response.text();
+                console.error('[proxy] VPS error:', errorBody);
+                return NextResponse.json(
+                    { success: false, error: 'Generatie mislukt', details: errorBody },
+                    { status: 500 }
+                );
+            }
+
+            const result = await response.json();
+            return NextResponse.json(result);
+        }
+
+        // --- Development: local Python execution ---
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const path = await import('path');
+        const fs = await import('fs');
+        const execAsync = promisify(exec);
+
         const {
             type, topic, variant, backgroundAI,
             align, useHandwriting, attribution,
@@ -18,89 +50,90 @@ export async function POST(request: Request) {
         const projectRoot = path.join(process.cwd(), '..');
         const pythonScript = path.join(projectRoot, 'generate.py');
 
-        // Build the command arguments — AI is always on
-        let args = [type];
-
-        if (topic) {
-            args.push(`--topic "${topic.replace(/"/g, '\\"')}"`);
-            args.push('--ai');
+        function escapeShellArg(str: string): string {
+            return `"${str.replace(/"/g, '\\"')}"`;
         }
 
-        // Type-specific arguments
-        if (type === 'podcast') {
-            if (subtitle) args.push(`--subtitle "${subtitle.replace(/"/g, '\\"')}"`);
-            if (episodeNumber) args.push(`--episode ${episodeNumber}`);
-        } else if (type === 'quote') {
-            if (attribution) args.push(`--attribution "${attribution.replace(/"/g, '\\"')}"`);
-            if (useHandwriting) args.push('--handwriting');
-        } else if (type === 'carousel') {
-            if (slideCount && slideCount !== 5) args.push(`--slides ${slideCount}`);
+        let args: string[] = [type];
+
+        switch (type) {
+            case 'podcast':
+                if (topic) args.push(`--title ${escapeShellArg(topic)}`);
+                if (subtitle) args.push(`--subtitle ${escapeShellArg(subtitle)}`);
+                if (episodeNumber) args.push(`--episode ${episodeNumber}`);
+                break;
+            case 'quote':
+                if (topic) {
+                    args.push(`--topic ${escapeShellArg(topic)}`);
+                    args.push('--ai');
+                }
+                if (attribution) args.push(`--attribution ${escapeShellArg(attribution)}`);
+                if (useHandwriting) args.push('--handwriting');
+                if (variant && variant !== 'dark') args.push(`--variant ${variant}`);
+                if (align) args.push(`--align ${align}`);
+                break;
+            case 'carousel':
+                if (topic) {
+                    args.push(`--topic ${escapeShellArg(topic)}`);
+                    args.push('--ai');
+                }
+                if (slideCount && slideCount !== 5) args.push(`--slides ${slideCount}`);
+                if (variant && variant !== 'dark') args.push(`--variant ${variant}`);
+                if (align) args.push(`--align ${align}`);
+                break;
+            default:
+                if (topic) {
+                    args.push(`--topic ${escapeShellArg(topic)}`);
+                    args.push('--ai');
+                }
+                if (variant && variant !== 'dark') args.push(`--variant ${variant}`);
+                break;
         }
 
-        if (variant && variant !== 'dark') {
-            args.push(`--variant ${variant}`);
-        }
-
-        if (align && ['left', 'center', 'right'].includes(align)) {
-            args.push(`--align ${align}`);
-        }
-
-        if (backgroundAI) {
-            args.push('--bg-ai');
-        }
-
+        if (backgroundAI) args.push('--bg-ai');
         args.push('--yes');
 
         const commandStr = `uv run "${pythonScript}" ${args.join(' ')}`;
-        console.log(`Executing: ${commandStr}`);
+        console.log(`[generate-local] ${commandStr}`);
 
-        try {
-            const { stdout, stderr } = await execAsync(commandStr, {
-                cwd: projectRoot,
-                timeout: 120000, // 2 minute timeout
-            });
-            console.log('Python output:', stdout);
-            if (stderr) console.error('Python stderr:', stderr);
+        const { stdout, stderr } = await execAsync(commandStr, {
+            cwd: projectRoot,
+            timeout: 180000,
+            env: { ...process.env, PYTHONUNBUFFERED: '1' },
+        });
 
-            // Parse output paths from CLI output
-            const savedFiles: string[] = [];
-            const lines = stdout.split('\n');
-            for (const line of lines) {
-                const trimmed = line.trim();
-                // Match lines that end with .png or .jpg (output file paths)
-                if (trimmed.match(/\.(png|jpg|jpeg)$/i) && fs.existsSync(trimmed)) {
-                    savedFiles.push(trimmed);
-                }
-                // Also try "Opgeslagen als: ..." format
-                if (trimmed.includes('Opgeslagen als:')) {
-                    const filePath = trimmed.split('Opgeslagen als:')[1]?.trim();
-                    if (filePath && fs.existsSync(filePath)) {
-                        savedFiles.push(filePath);
-                    }
-                }
+        if (stderr) console.error('[generate-local] stderr:', stderr);
+
+        // Parse output paths
+        const savedFiles: string[] = [];
+        for (const line of stdout.split('\n')) {
+            const trimmed = line.trim();
+            if (trimmed.match(/\.(png|jpg|jpeg)$/i) && fs.existsSync(trimmed)) {
+                savedFiles.push(trimmed);
             }
-
-            // Convert images to base64 for preview
-            const images: string[] = [];
-            const uniqueFiles = [...new Set(savedFiles)];
-            for (const file of uniqueFiles) {
-                const buffer = fs.readFileSync(file);
-                const base64 = buffer.toString('base64');
-                images.push(`data:image/png;base64,${base64}`);
-            }
-
-            return NextResponse.json({ success: true, command: commandStr, images });
-
-        } catch (execError: any) {
-            console.error("Execution error:", execError);
-            return NextResponse.json(
-                { success: false, error: 'Generatie mislukt', details: execError.message },
-                { status: 500 }
-            );
         }
 
+        // Convert to base64
+        const images: string[] = [];
+        const uniqueFiles = [...new Set(savedFiles)];
+        for (const file of uniqueFiles) {
+            const buffer = fs.readFileSync(file);
+            const base64 = buffer.toString('base64');
+            images.push(`data:image/png;base64,${base64}`);
+        }
+
+        return NextResponse.json({
+            success: true,
+            images,
+            paths: uniqueFiles,
+            filesGenerated: uniqueFiles.length,
+        });
+
     } catch (error: any) {
-        console.error("API error:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        console.error('[generate] Error:', error);
+        return NextResponse.json(
+            { success: false, error: 'Generatie mislukt', details: error.message },
+            { status: 500 }
+        );
     }
 }
