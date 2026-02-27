@@ -57,9 +57,11 @@ async function generateWithGemini(
 }
 
 // Model cascade — try newer models first, fall back to older ones
+// Model cascade — Nano Banana 2 (gemini-3.1-flash) as primary
 const MODELS = [
-    "gemini-2.0-flash-exp",
-    "gemini-2.0-flash",
+    "gemini-3.1-flash-image-preview",
+    "gemini-3-pro-image-preview",
+    "gemini-2.5-flash-image",
 ];
 
 async function generateImage(apiKey: string, prompt: string): Promise<{ base64: string; mimeType: string; model: string } | null> {
