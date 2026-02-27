@@ -1,138 +1,173 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import {
+    buildPodcastPrompt,
+    buildCarouselPrompt,
+    buildQuotePrompt,
+    buildArticlePrompt,
+} from "@/lib/ct-prompts";
 
 /**
- * Proxy /api/generate requests to the Python backend on the VPS.
- * 
- * In development: falls back to local `uv run` execution.
- * In production: proxies to GENERATOR_API_URL (VPS).
+ * Generate visuals using Gemini AI — runs 100% on Vercel, no Python/VPS needed.
+ * Same pattern as Bitcoin Alpha Admin's generate-thumbnail route.
  */
 
-const GENERATOR_API_URL = process.env.GENERATOR_API_URL;
+async function generateWithGemini(
+    apiKey: string,
+    prompt: string,
+    model: string = "gemini-2.0-flash-exp"
+): Promise<{ base64: string; mimeType: string } | null> {
+    try {
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseModalities: ["IMAGE", "TEXT"],
+                    },
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[gemini] ${model} error:`, errorText);
+            return null;
+        }
+
+        const data = await response.json();
+        const parts = data.candidates?.[0]?.content?.parts;
+        if (parts) {
+            for (const part of parts) {
+                if (part.inlineData) {
+                    return {
+                        base64: part.inlineData.data,
+                        mimeType: part.inlineData.mimeType || "image/png",
+                    };
+                }
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error(`[gemini] ${model} failed:`, e);
+        return null;
+    }
+}
+
+// Model cascade — try newer models first, fall back to older ones
+const MODELS = [
+    "gemini-2.0-flash-exp",
+    "gemini-2.0-flash",
+];
+
+async function generateImage(apiKey: string, prompt: string): Promise<{ base64: string; mimeType: string; model: string } | null> {
+    for (const model of MODELS) {
+        const result = await generateWithGemini(apiKey, prompt, model);
+        if (result) {
+            return { ...result, model };
+        }
+    }
+    return null;
+}
 
 export async function POST(request: Request) {
     try {
         const data = await request.json();
+        const { type, topic, variant, subtitle, episodeNumber, attribution } = data;
 
-        // --- Production: proxy to VPS ---
-        if (GENERATOR_API_URL) {
-            const response = await fetch(`${GENERATOR_API_URL}/generate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-
-            if (!response.ok) {
-                const errorBody = await response.text();
-                console.error('[proxy] VPS error:', errorBody);
-                return NextResponse.json(
-                    { success: false, error: 'Generatie mislukt', details: errorBody },
-                    { status: 500 }
-                );
-            }
-
-            const result = await response.json();
-            return NextResponse.json(result);
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+            return NextResponse.json(
+                { success: false, error: "GEMINI_API_KEY is niet geconfigureerd." },
+                { status: 500 }
+            );
         }
 
-        // --- Development: local Python execution ---
-        const { exec } = await import('child_process');
-        const { promisify } = await import('util');
-        const path = await import('path');
-        const fs = await import('fs');
-        const execAsync = promisify(exec);
-
-        const {
-            type, topic, variant, backgroundAI,
-            align, useHandwriting, attribution,
-            subtitle, episodeNumber, slideCount
-        } = data;
-
-        const projectRoot = path.join(process.cwd(), '..');
-        const pythonScript = path.join(projectRoot, 'generate.py');
-
-        function escapeShellArg(str: string): string {
-            return `"${str.replace(/"/g, '\\"')}"`;
+        if (!topic) {
+            return NextResponse.json(
+                { success: false, error: "Onderwerp/titel is vereist." },
+                { status: 400 }
+            );
         }
 
-        let args: string[] = [type];
+        const images: string[] = [];
+        const models: string[] = [];
 
         switch (type) {
-            case 'podcast':
-                if (topic) args.push(`--title ${escapeShellArg(topic)}`);
-                if (subtitle) args.push(`--subtitle ${escapeShellArg(subtitle)}`);
-                if (episodeNumber) args.push(`--episode ${episodeNumber}`);
-                break;
-            case 'quote':
-                if (topic) {
-                    args.push(`--topic ${escapeShellArg(topic)}`);
-                    args.push('--ai');
+            case "podcast": {
+                // Generate both YouTube (16:9) and Square (1:1) formats
+                const ep = episodeNumber || 1;
+                const sub = subtitle || "Cryptotakkies Podcast";
+
+                for (const format of ["youtube", "square"] as const) {
+                    const prompt = buildPodcastPrompt(topic, sub, ep, format);
+                    const result = await generateImage(apiKey, prompt);
+                    if (result) {
+                        images.push(`data:${result.mimeType};base64,${result.base64}`);
+                        models.push(result.model);
+                    }
                 }
-                if (attribution) args.push(`--attribution ${escapeShellArg(attribution)}`);
-                if (useHandwriting) args.push('--handwriting');
-                if (variant && variant !== 'dark') args.push(`--variant ${variant}`);
-                if (align) args.push(`--align ${align}`);
                 break;
-            case 'carousel':
-                if (topic) {
-                    args.push(`--topic ${escapeShellArg(topic)}`);
-                    args.push('--ai');
-                }
-                if (slideCount && slideCount !== 5) args.push(`--slides ${slideCount}`);
-                if (variant && variant !== 'dark') args.push(`--variant ${variant}`);
-                if (align) args.push(`--align ${align}`);
-                break;
-            default:
-                if (topic) {
-                    args.push(`--topic ${escapeShellArg(topic)}`);
-                    args.push('--ai');
-                }
-                if (variant && variant !== 'dark') args.push(`--variant ${variant}`);
-                break;
-        }
-
-        if (backgroundAI) args.push('--bg-ai');
-        args.push('--yes');
-
-        const commandStr = `uv run "${pythonScript}" ${args.join(' ')}`;
-        console.log(`[generate-local] ${commandStr}`);
-
-        const { stdout, stderr } = await execAsync(commandStr, {
-            cwd: projectRoot,
-            timeout: 180000,
-            env: { ...process.env, PYTHONUNBUFFERED: '1' },
-        });
-
-        if (stderr) console.error('[generate-local] stderr:', stderr);
-
-        // Parse output paths
-        const savedFiles: string[] = [];
-        for (const line of stdout.split('\n')) {
-            const trimmed = line.trim();
-            if (trimmed.match(/\.(png|jpg|jpeg)$/i) && fs.existsSync(trimmed)) {
-                savedFiles.push(trimmed);
             }
+
+            case "carousel": {
+                // For carousel, generate a single hook slide as preview
+                const prompt = buildCarouselPrompt(topic, topic, "", 1, 5);
+                const result = await generateImage(apiKey, prompt);
+                if (result) {
+                    images.push(`data:${result.mimeType};base64,${result.base64}`);
+                    models.push(result.model);
+                }
+                break;
+            }
+
+            case "quote": {
+                const prompt = buildQuotePrompt(topic, attribution, variant);
+                const result = await generateImage(apiKey, prompt);
+                if (result) {
+                    images.push(`data:${result.mimeType};base64,${result.base64}`);
+                    models.push(result.model);
+                }
+                break;
+            }
+
+            case "article": {
+                const prompt = buildArticlePrompt(topic);
+                const result = await generateImage(apiKey, prompt);
+                if (result) {
+                    images.push(`data:${result.mimeType};base64,${result.base64}`);
+                    models.push(result.model);
+                }
+                break;
+            }
+
+            default:
+                return NextResponse.json(
+                    { success: false, error: `Onbekend type: ${type}` },
+                    { status: 400 }
+                );
         }
 
-        // Convert to base64
-        const images: string[] = [];
-        const uniqueFiles = [...new Set(savedFiles)];
-        for (const file of uniqueFiles) {
-            const buffer = fs.readFileSync(file);
-            const base64 = buffer.toString('base64');
-            images.push(`data:image/png;base64,${base64}`);
+        if (images.length === 0) {
+            return NextResponse.json(
+                { success: false, error: "Geen enkel model kon een afbeelding genereren. Probeer het opnieuw." },
+                { status: 500 }
+            );
         }
 
         return NextResponse.json({
             success: true,
             images,
-            paths: uniqueFiles,
-            filesGenerated: uniqueFiles.length,
+            models,
+            filesGenerated: images.length,
         });
 
     } catch (error: any) {
-        console.error('[generate] Error:', error);
+        console.error("[generate] Error:", error);
         return NextResponse.json(
-            { success: false, error: 'Generatie mislukt', details: error.message },
+            { success: false, error: "Generatie mislukt", details: error.message },
             { status: 500 }
         );
     }
