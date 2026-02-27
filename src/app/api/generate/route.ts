@@ -137,6 +137,12 @@ async function compositeVectorPerson(
 }
 
 // ─── Composite: Add Text Overlay via SVG ───────────────────────
+// Configure fontconfig to find our custom fonts
+const fontsConfPath = path.join(process.cwd(), "fonts.conf");
+if (fs.existsSync(fontsConfPath)) {
+    process.env.FONTCONFIG_FILE = fontsConfPath;
+}
+
 async function compositeQuoteText(
     baseBuffer: Buffer,
     quoteText: string,
@@ -144,15 +150,6 @@ async function compositeQuoteText(
     targetWidth: number,
     targetHeight: number,
 ): Promise<Buffer> {
-    // Load the brand font as base64 for SVG embedding
-    const fontPath = path.join(process.cwd(), "public", "fonts", "ABCFavorit-Ultra-Trial.otf");
-    let fontBase64 = "";
-    try {
-        const fontBuffer = fs.readFileSync(fontPath);
-        fontBase64 = fontBuffer.toString("base64");
-    } catch (e) {
-        console.warn("[composite] Could not load brand font, falling back to system fonts");
-    }
 
     // Calculate font sizes relative to canvas
     const quoteFontSize = Math.round(targetWidth * 0.048);
@@ -184,20 +181,9 @@ async function compositeQuoteText(
 
     const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-    // Font face definition — embed the actual brand font
-    const fontFace = fontBase64 ? `
-        <defs>
-            <style type="text/css">
-                @font-face {
-                    font-family: 'BrandFont';
-                    src: url(data:font/opentype;base64,${fontBase64}) format('opentype');
-                    font-weight: 900;
-                    font-style: normal;
-                }
-            </style>
-        </defs>` : "";
-
-    const brandFontFamily = fontBase64 ? "'BrandFont'" : "'Impact', 'Arial Black', sans-serif";
+    // Font family — fontconfig should resolve 'ABCFavorit-Ultra' from fonts.conf
+    // Falls back to Impact (available on most systems) which has similar condensed black look
+    const brandFontFamily = "'ABCFavorit-Ultra', 'Impact', 'Arial Black', sans-serif";
 
     const textLines = lines.map((line, i) =>
         `<text x="${targetWidth / 2}" y="${textStartY + (i * lineHeight)}" 
@@ -214,7 +200,7 @@ async function compositeQuoteText(
     const attrLine = attribution ?
         `<text x="${targetWidth / 2}" y="${textStartY + (lines.length * lineHeight) + attrFontSize * 2.5}" 
             text-anchor="middle" 
-            font-family="'Helvetica Neue', 'Arial', sans-serif" 
+            font-family="'Helvetica', 'Arial', sans-serif" 
             font-weight="400" 
             font-size="${attrFontSize}" 
             fill="rgba(255,255,255,0.55)" 
@@ -239,7 +225,6 @@ async function compositeQuoteText(
     >cryptotakkies</text>`;
 
     const svgOverlay = Buffer.from(`<svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
-${fontFace}
 ${quoteMark}
 ${textLines}
 ${attrLine}
