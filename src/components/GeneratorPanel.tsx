@@ -138,12 +138,18 @@ export default function GeneratorPanel() {
                             </div>
                         ) : (
                             <>
-                                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 border border-white/5">
-                                    <IconPresentation className="h-8 w-8 text-white/20" />
+                                {/* Vector person illustration */}
+                                <div className="relative mb-6">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src="/vectors/person-laptop.png"
+                                        alt="Vector illustratie"
+                                        className="h-32 w-auto opacity-60 drop-shadow-lg"
+                                    />
                                 </div>
-                                <p className="text-ct-light/60 font-medium mb-2">Pre-view Area</p>
+                                <p className="text-ct-light/60 font-medium mb-2">Klaar om te creëren</p>
                                 <p className="text-xs text-ct-light/40 max-w-xs text-balance">
-                                    De gegenereerde visual zal hier in hoge resolutie verschijnen nadat je op Genereren klikt.
+                                    Vul links je onderwerp in en klik op Genereren — je on-brand visual verschijnt hier binnen enkele seconden.
                                 </p>
                             </>
                         )}

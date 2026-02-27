@@ -14,8 +14,17 @@ BRAND IDENTITY — CRYPTOTAKKIES:
 - Accent: Light Green (#E8F0EE)
 - Typography style: Bold condensed titles, clean body text
 - Personality: "De slimme broer die het simpel uitlegt" — educational, streetwise, accessible
-- Visual language: Playful doodle arts, hand-drawn accents, bold typography
+- Visual language: Playful doodle arts, hand-drawn accents, bold typography, flat vector character illustrations
 - Content topics: Crypto, Bitcoin, blockchain, DeFi, Web3 — explained in simple Dutch
+
+VECTOR CHARACTER STYLE (when including people):
+The brand uses flat, modern vector illustrations of diverse young professionals. Style characteristics:
+- Flat design with no outlines, using solid color fills
+- Characters wear brand colors: dark green (#1B5E3B) and mint green (#2ECC71) clothing
+- Clean, minimal faces with warm skin tones
+- Characters are depicted doing educational activities: reading books, holding tablets/laptops, writing in notebooks, carrying backpacks
+- Style reference: modern corporate illustration, similar to Notion or Slack illustrations but in Cryptotakkies green tones
+- Characters should feel approachable, young, and studious — matching the "smart brother" brand personality
 `;
 
 // ─── Podcast Thumbnail ─────────────────────────────────────────
@@ -69,6 +78,7 @@ LAYOUT:
 - Body text in clean white regular font below the title
 - Add a subtle slide number indicator: [SLIDE_NUM]/[TOTAL_SLIDES]
 - Add subtle decorative doodle elements (hand-drawn arrows, stars, underlines) in mint green (#2ECC71) as accents
+- OPTIONAL: If appropriate for the topic, include a small flat vector character illustration in the bottom-right corner. The character should be in the Cryptotakkies style (dark green/mint green clothing, flat design, no outlines) and doing something related to the slide content (e.g. reading, pointing, thinking). The character should be ~20% of the canvas height and not overlap with text.
 
 STYLE: Clean, educational, premium. Think: high-quality LinkedIn carousel from a professional crypto educator. Bold typography, lots of whitespace, easy to read at small sizes.
 
@@ -95,6 +105,7 @@ LAYOUT:
 - Attribution (if present) in smaller, lighter text below the quote
 - Leave top area for logo overlay
 - Add subtle hand-drawn doodle accents (underlines, stars, arrows) in green tones
+- OPTIONAL: Include a small flat vector character silhouette or illustration in one corner. The character should be in Cryptotakkies brand colors (dark green/mint), sitting or standing in a thoughtful/contemplative pose. Keep small (~15% of canvas) and subtle — the quote text is the hero.
 
 STYLE: Clean, inspiring, shareable. The quote should be the hero element. Think: motivational crypto education content for social media.
 
