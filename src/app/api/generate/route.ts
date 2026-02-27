@@ -308,11 +308,8 @@ export async function POST(request: Request) {
                         .png()
                         .toBuffer();
 
-                    // Step 2: Composite text overlay with brand typography
-                    const textBuffer = await compositeQuoteText(resizedBuffer, topic, attribution, width, height);
-
-                    // Step 3: Composite vector person overlay
-                    const finalBuffer = await compositeVectorPerson(textBuffer, width, height);
+                    // Step 2: Composite vector person overlay (text is rendered client-side)
+                    const finalBuffer = await compositeVectorPerson(resizedBuffer, width, height);
 
                     const finalBase64 = finalBuffer.toString("base64");
                     images.push(`data:image/png;base64,${finalBase64}`);
