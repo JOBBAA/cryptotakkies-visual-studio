@@ -14,6 +14,7 @@ export default function GeneratorForm({ type, onSubmit, isGenerating }: FormProp
     const [variant, setVariant] = useState('dark');
     const [align, setAlign] = useState<'left' | 'center' | 'right'>('left');
     const [backgroundAI, setBackgroundAI] = useState(false);
+    const [resolution, setResolution] = useState('1080x1080');
 
     // Carousel-specific
     const [slideCount, setSlideCount] = useState(5);
@@ -48,6 +49,18 @@ export default function GeneratorForm({ type, onSubmit, isGenerating }: FormProp
                 <option value="left">Links</option>
                 <option value="center">Midden</option>
                 <option value="right">Rechts</option>
+            </select>
+        </div>
+    );
+
+    const renderSizeSelect = () => (
+        <div className="space-y-2">
+            <label className={labelClass}>Afmeting</label>
+            <select value={resolution} onChange={(e) => setResolution(e.target.value)} className={selectClass}>
+                <option value="1080x1080">1080 × 1080 (Instagram)</option>
+                <option value="1280x720">1280 × 720 (YouTube)</option>
+                <option value="1080x1440">1080 × 1440 (Story/Portrait)</option>
+                <option value="2000x800">2000 × 800 (Banner)</option>
             </select>
         </div>
     );
@@ -162,6 +175,8 @@ export default function GeneratorForm({ type, onSubmit, isGenerating }: FormProp
                             />
                         </div>
 
+                        {renderSizeSelect()}
+
                         <div className="grid grid-cols-2 gap-4">
                             {renderVariantSelect()}
                             {renderAlignSelect()}
@@ -215,6 +230,7 @@ export default function GeneratorForm({ type, onSubmit, isGenerating }: FormProp
             variant,
             align,
             backgroundAI,
+            resolution,
             useHandwriting,
             attribution,
             subtitle,

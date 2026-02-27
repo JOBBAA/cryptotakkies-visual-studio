@@ -77,7 +77,7 @@ async function generateImage(apiKey: string, prompt: string): Promise<{ base64: 
 export async function POST(request: Request) {
     try {
         const data = await request.json();
-        const { type, topic, variant, subtitle, episodeNumber, attribution } = data;
+        const { type, topic, variant, subtitle, episodeNumber, attribution, resolution } = data;
 
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) {
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
             }
 
             case "quote": {
-                const prompt = buildQuotePrompt(topic, attribution, variant);
+                const prompt = buildQuotePrompt(topic, attribution, variant, resolution || '1080x1080');
                 const result = await generateImage(apiKey, prompt);
                 if (result) {
                     images.push(`data:${result.mimeType};base64,${result.base64}`);
