@@ -97,31 +97,31 @@ LAYOUT:
                         CRITICAL: All text must be perfectly legible and correctly spelled.Keep it clean and minimal.`;
 
 // ─── Social Quote ───────────────────────────────────────────────
-export const QUOTE_PROMPT = `Create a social media quote card ([RESOLUTION]).
+export const QUOTE_PROMPT = `Create a social media background image ([RESOLUTION]).
 
     ${CT_BRAND}
 
-QUOTE CARD REQUIREMENTS:
-Design an inspiring, shareable quote card for Instagram / LinkedIn.
+BACKGROUND-ONLY IMAGE — NO TEXT, NO CHARACTERS, NO LETTERS:
+Generate ONLY a beautiful atmospheric background for a quote card.
 
     BACKGROUND: [VARIANT_BG]
 
-QUOTE TEXT: Display this quote prominently:
-"[QUOTE_TEXT]"
+DESIGN REQUIREMENTS:
+- Fill the ENTIRE canvas edge-to-edge with the background color/texture
+- Add subtle grain/paper texture for depth
+- Add subtle decorative doodle elements (hand-drawn stars, dots, small arrows, wavy lines) in slightly lighter/darker tones of the main color
+- These doodles should be very subtle, almost background noise — the text will be overlaid separately
+- Leave the center ~60% relatively clean (text will go there)
+- Add a subtle vignette darkening at the edges for depth
 
-[ATTRIBUTION_LINE]
+CRITICAL RULES:
+- DO NOT include ANY text, letters, words, numbers, or typography of any kind
+- DO NOT include ANY people, characters, illustrations, or silhouettes
+- DO NOT include ANY logos or watermarks
+- This is PURELY an atmospheric background image
+- The entire canvas must be filled — no white borders or empty edges
 
-LAYOUT:
-- Large opening quotation mark(") as a decorative element in mint green (#2ECC71), positioned top-left
-    - Quote text centered, in bold white typography
-- Attribution(if present) in smaller, lighter text below the quote
-    - Leave top area for logo overlay
-        - Add subtle hand - drawn doodle accents(underlines, stars, arrows) in green tones
-            - OPTIONAL: Include a small flat vector character silhouette or illustration in one corner.The character should be in Cryptotakkies brand colors(dark green / mint), sitting or standing in a thoughtful / contemplative pose.Keep small(~15 % of canvas) and subtle — the quote text is the hero.
-
-                STYLE: Clean, inspiring, shareable.The quote should be the hero element.Think: motivational crypto education content for social media.
-
-                    CRITICAL: The quote text must be perfectly legible and correctly spelled.Typography is the main design element.`;
+STYLE: Premium, textured, editorial background. Think: high-quality social media template backdrop.`;
 
 // ─── Article Thumbnail ──────────────────────────────────────────
 export const ARTICLE_PROMPT = `Create a blog article thumbnail in 16: 9 format(1200x630 pixels).
@@ -192,18 +192,14 @@ export function buildCarouselPrompt(
 }
 
 export function buildQuotePrompt(
-    quoteText: string,
-    attribution?: string,
+    _quoteText: string,
+    _attribution?: string,
     variant: string = "dark",
     resolution: string = "1080x1080"
 ): string {
     return QUOTE_PROMPT
         .replace("[RESOLUTION]", resolution)
-        .replace("[QUOTE_TEXT]", quoteText)
-        .replace("[VARIANT_BG]", VARIANT_BACKGROUNDS[variant] || VARIANT_BACKGROUNDS.dark)
-        .replace("[ATTRIBUTION_LINE]", attribution
-            ? `Attribution: "— ${attribution}"`
-            : "No attribution needed.");
+        .replace("[VARIANT_BG]", VARIANT_BACKGROUNDS[variant] || VARIANT_BACKGROUNDS.dark);
 }
 
 export function buildArticlePrompt(topic: string): string {

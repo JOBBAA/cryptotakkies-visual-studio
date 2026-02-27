@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Layers, Mic, Presentation as IconPresentation, FileText, Quote, Image as ImageIcon } from 'lucide-react';
+import { Layers, Mic, Presentation as IconPresentation, FileText, Quote, Image as ImageIcon, Download, CheckCircle } from 'lucide-react';
 import GeneratorForm from './GeneratorForm';
 
 const GENERATOR_TYPES = [
@@ -14,14 +14,25 @@ const GENERATOR_TYPES = [
 
 type GeneratorType = typeof GENERATOR_TYPES[number]['id'];
 
+// Resolution to aspect ratio mapping for preview
+const ASPECT_RATIOS: Record<string, string> = {
+    '1080x1080': 'aspect-square',
+    '1280x720': 'aspect-video',
+    '1080x1440': 'aspect-[3/4]',
+    '2000x800': 'aspect-[5/2]',
+};
+
 export default function GeneratorPanel() {
     const [activeTab, setActiveTab] = useState<GeneratorType>('carousel');
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedResults, setGeneratedResults] = useState<string[]>([]);
+    const [currentResolution, setCurrentResolution] = useState('1080x1080');
+    const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
 
     const handleGenerate = async (formData: any) => {
         setIsGenerating(true);
         setGeneratedResults([]);
+        setCurrentResolution(formData.resolution || '1080x1080');
 
         try {
             const response = await fetch('/api/generate', {
@@ -52,6 +63,39 @@ export default function GeneratorPanel() {
         }
     };
 
+    // Download a single image
+    const handleDownload = async (dataUrl: string, index: number) => {
+        setDownloadingIndex(index);
+        try {
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const typeName = activeTab;
+            const timestamp = new Date().toISOString().slice(0, 10);
+            a.download = `cryptotakkies-${typeName}-${timestamp}-${index + 1}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download failed:', err);
+        }
+        setTimeout(() => setDownloadingIndex(null), 1500);
+    };
+
+    // Download all images
+    const handleDownloadAll = async () => {
+        for (let i = 0; i < generatedResults.length; i++) {
+            await handleDownload(generatedResults[i], i);
+            // Small delay between downloads
+            await new Promise(r => setTimeout(r, 300));
+        }
+    };
+
+    const aspectClass = ASPECT_RATIOS[currentResolution] || 'aspect-square';
+
     return (
         <div className="w-full max-w-6xl mx-auto glass-dark rounded-3xl overflow-hidden shadow-2xl border border-white/10">
 
@@ -67,7 +111,7 @@ export default function GeneratorPanel() {
                                 key={type.id}
                                 onClick={() => {
                                     setActiveTab(type.id);
-                                    setGeneratedResults([]); // Clear results on switch
+                                    setGeneratedResults([]);
                                 }}
                                 className={`
                   flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all
@@ -105,34 +149,52 @@ export default function GeneratorPanel() {
                 </div>
 
                 {/* Right Column: Preview */}
-                <div className="w-full lg:w-7/12 p-6 lg:p-8 bg-black/40 flex flex-col items-center justify-center min-h-[500px]">
+                <div className="w-full lg:w-7/12 p-6 lg:p-8 bg-black/40 flex flex-col min-h-[500px]">
                     <div className="w-full flex items-center justify-between mb-4">
                         <h3 className="text-sm font-medium text-ct-light/50 flex items-center gap-2">
                             <ImageIcon className="h-4 w-4" /> Live Preview
                         </h3>
                         {generatedResults.length > 0 && (
-                            <button className="text-xs bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 rounded-lg text-white font-medium border border-white/10">
-                                Download Resultaat
+                            <button
+                                onClick={handleDownloadAll}
+                                className="text-xs bg-ct-mint/20 hover:bg-ct-mint/30 transition-colors px-4 py-2 rounded-lg text-ct-mint font-medium border border-ct-mint/30 flex items-center gap-2"
+                            >
+                                <Download className="h-3.5 w-3.5" />
+                                {generatedResults.length === 1 ? 'Download' : `Download alle (${generatedResults.length})`}
                             </button>
                         )}
                     </div>
 
                     <div className={`
-            border border-white/10 border-dashed rounded-2xl w-full h-full flex flex-col items-center justify-center p-8 text-center transition-all bg-black/50
-            ${isGenerating ? 'animate-pulse bg-ct-mint/5 border-ct-mint/30' : ''}
-          `}>
+                        border border-white/10 border-dashed rounded-2xl w-full flex-1 flex flex-col items-center justify-center p-6 text-center transition-all bg-black/50
+                        ${isGenerating ? 'animate-pulse bg-ct-mint/5 border-ct-mint/30' : ''}
+                    `}>
                         {isGenerating ? (
                             <div className="flex flex-col items-center">
                                 <div className="w-16 h-16 rounded-full border-4 border-ct-mint/20 border-t-ct-mint animate-spin mb-4"></div>
                                 <p className="text-ct-mint font-medium animate-pulse">Genereren...</p>
-                                <p className="text-xs text-ct-light/40 mt-2 text-balance">Content aan het genereren... (wacht 15-30 sec)</p>
+                                <p className="text-xs text-ct-light/40 mt-2 text-balance">AI genereert achtergrond → tekst overlay → vector poppetje (~20-30 sec)</p>
                             </div>
                         ) : generatedResults.length > 0 ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center gap-4 overflow-y-auto pt-4">
+                            <div className="w-full flex flex-col items-center gap-6 overflow-y-auto">
                                 {generatedResults.map((src, i) => (
-                                    <div key={i} className="relative w-[360px] max-w-full aspect-square rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-[#111] flex flex-shrink-0 items-center justify-center">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={src} alt={`Generated result ${i + 1}`} className="w-full h-full object-contain" />
+                                    <div key={i} className="relative group w-full max-w-lg">
+                                        <div className={`relative w-full ${aspectClass} rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-black`}>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img src={src} alt={`Generated result ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                                        </div>
+                                        {/* Per-image download button */}
+                                        <button
+                                            onClick={() => handleDownload(src, i)}
+                                            className="absolute top-3 right-3 bg-black/70 hover:bg-black/90 backdrop-blur-sm text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/10"
+                                            title="Download"
+                                        >
+                                            {downloadingIndex === i ? (
+                                                <CheckCircle className="h-4 w-4 text-ct-mint" />
+                                            ) : (
+                                                <Download className="h-4 w-4" />
+                                            )}
+                                        </button>
                                     </div>
                                 ))}
                             </div>
