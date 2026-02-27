@@ -138,14 +138,8 @@ export default function GeneratorPanel() {
                             </div>
                         ) : (
                             <>
-                                {/* Vector person illustration */}
-                                <div className="relative mb-6">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
-                                        src="/vectors/person-laptop.png"
-                                        alt="Vector illustratie"
-                                        className="h-32 w-auto opacity-60 drop-shadow-lg"
-                                    />
+                                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 border border-white/5">
+                                    <IconPresentation className="h-8 w-8 text-white/20" />
                                 </div>
                                 <p className="text-ct-light/60 font-medium mb-2">Klaar om te creëren</p>
                                 <p className="text-xs text-ct-light/40 max-w-xs text-balance">

@@ -52,21 +52,6 @@ export default function Hero() {
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </a>
             </motion.div>
-
-            {/* Vector person illustration — subtle brand touch */}
-            <motion.div
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 0.35, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.5 }}
-                className="absolute bottom-4 right-8 hidden lg:block pointer-events-none"
-            >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                    src="/vectors/person-writing.png"
-                    alt=""
-                    className="h-36 w-auto drop-shadow-lg"
-                />
-            </motion.div>
         </div>
     );
 }
