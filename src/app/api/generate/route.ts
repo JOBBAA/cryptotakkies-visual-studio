@@ -144,10 +144,20 @@ async function compositeQuoteText(
     targetWidth: number,
     targetHeight: number,
 ): Promise<Buffer> {
+    // Load the brand font as base64 for SVG embedding
+    const fontPath = path.join(process.cwd(), "public", "fonts", "ABCFavorit-Ultra-Trial.otf");
+    let fontBase64 = "";
+    try {
+        const fontBuffer = fs.readFileSync(fontPath);
+        fontBase64 = fontBuffer.toString("base64");
+    } catch (e) {
+        console.warn("[composite] Could not load brand font, falling back to system fonts");
+    }
+
     // Calculate font sizes relative to canvas
-    const quoteFontSize = Math.round(targetWidth * 0.045);
-    const attrFontSize = Math.round(targetWidth * 0.025);
-    const quoteMarkSize = Math.round(targetWidth * 0.15);
+    const quoteFontSize = Math.round(targetWidth * 0.048);
+    const attrFontSize = Math.round(targetWidth * 0.022);
+    const quoteMarkSize = Math.round(targetWidth * 0.18);
     const padding = Math.round(targetWidth * 0.08);
     const maxTextWidth = targetWidth - (padding * 2);
 
@@ -155,7 +165,7 @@ async function compositeQuoteText(
     const words = quoteText.split(" ");
     const lines: string[] = [];
     let currentLine = "";
-    const charsPerLine = Math.floor(maxTextWidth / (quoteFontSize * 0.52));
+    const charsPerLine = Math.floor(maxTextWidth / (quoteFontSize * 0.48));
 
     for (const word of words) {
         if ((currentLine + " " + word).length > charsPerLine && currentLine) {
@@ -168,61 +178,73 @@ async function compositeQuoteText(
     if (currentLine) lines.push(currentLine.trim());
 
     // Build SVG text lines
-    const lineHeight = quoteFontSize * 1.35;
+    const lineHeight = quoteFontSize * 1.3;
     const totalTextHeight = lines.length * lineHeight;
     const textStartY = (targetHeight - totalTextHeight) / 2 + quoteFontSize;
 
     const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+    // Font face definition — embed the actual brand font
+    const fontFace = fontBase64 ? `
+        <defs>
+            <style type="text/css">
+                @font-face {
+                    font-family: 'BrandFont';
+                    src: url(data:font/opentype;base64,${fontBase64}) format('opentype');
+                    font-weight: 900;
+                    font-style: normal;
+                }
+            </style>
+        </defs>` : "";
+
+    const brandFontFamily = fontBase64 ? "'BrandFont'" : "'Impact', 'Arial Black', sans-serif";
+
     const textLines = lines.map((line, i) =>
         `<text x="${targetWidth / 2}" y="${textStartY + (i * lineHeight)}" 
             text-anchor="middle" 
-            font-family="'ABC Favorit Ultra', 'Impact', 'Arial Black', sans-serif" 
+            font-family="${brandFontFamily}" 
             font-weight="900" 
             font-size="${quoteFontSize}" 
             fill="white" 
-            letter-spacing="-1"
-            style="text-transform: lowercase;"
-        >${escapeXml(line)}</text>`
+            letter-spacing="-0.5"
+        >${escapeXml(line.toLowerCase())}</text>`
     ).join("\n");
 
     // Attribution line
     const attrLine = attribution ?
-        `<text x="${targetWidth / 2}" y="${textStartY + (lines.length * lineHeight) + attrFontSize * 1.8}" 
+        `<text x="${targetWidth / 2}" y="${textStartY + (lines.length * lineHeight) + attrFontSize * 2.5}" 
             text-anchor="middle" 
             font-family="'Helvetica Neue', 'Arial', sans-serif" 
             font-weight="400" 
             font-size="${attrFontSize}" 
-            fill="rgba(255,255,255,0.6)" 
-            letter-spacing="1"
-        >— ${escapeXml(attribution)}</text>` : "";
+            fill="rgba(255,255,255,0.55)" 
+            letter-spacing="2"
+        >— ${escapeXml(attribution).toUpperCase()}</text>` : "";
 
     // Decorative quote mark
-    const quoteMark = `<text x="${padding}" y="${padding + quoteMarkSize * 0.8}" 
-        font-family="Georgia, serif" 
+    const quoteMark = `<text x="${padding * 0.7}" y="${textStartY - lineHeight * 0.3}" 
+        font-family="Georgia, 'Times New Roman', serif" 
         font-size="${quoteMarkSize}" 
         fill="#2ECC71" 
-        opacity="0.4"
+        opacity="0.3"
     >"</text>`;
 
-    // Logo area hint — subtle "cryptotakkies" text at top
-    const logoText = `<text x="${padding}" y="${padding * 0.6 + 16}" 
-        font-family="'ABC Favorit Ultra', 'Impact', sans-serif" 
+    // Subtle brand name at top
+    const logoText = `<text x="${padding}" y="${padding * 0.7}" 
+        font-family="${brandFontFamily}" 
         font-weight="900" 
-        font-size="16" 
-        fill="rgba(255,255,255,0.25)" 
-        letter-spacing="2"
-        style="text-transform: lowercase;"
+        font-size="14" 
+        fill="rgba(255,255,255,0.2)" 
+        letter-spacing="3"
     >cryptotakkies</text>`;
 
-    const svgOverlay = Buffer.from(`
-        <svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
-            ${quoteMark}
-            ${textLines}
-            ${attrLine}
-            ${logoText}
-        </svg>
-    `);
+    const svgOverlay = Buffer.from(`<svg width="${targetWidth}" height="${targetHeight}" xmlns="http://www.w3.org/2000/svg">
+${fontFace}
+${quoteMark}
+${textLines}
+${attrLine}
+${logoText}
+</svg>`);
 
     return sharp(baseBuffer)
         .composite([{
