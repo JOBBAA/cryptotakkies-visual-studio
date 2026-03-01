@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 type FormProps = {
-    type: 'carousel' | 'podcast' | 'presentation' | 'article' | 'quote' | 'animated-presentation' | 'animated-social';
+    type: 'carousel' | 'podcast' | 'presentation' | 'article' | 'quote' | 'animated-social';
     onSubmit: (data: any) => void;
     isGenerating: boolean;
 };
@@ -198,7 +198,6 @@ export default function GeneratorForm({ type, onSubmit, isGenerating }: FormProp
                     </>
                 );
 
-            case 'animated-presentation':
             case 'animated-social':
                 return (
                     <>

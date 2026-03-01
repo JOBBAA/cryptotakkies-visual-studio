@@ -11,7 +11,6 @@ const GENERATOR_TYPES = [
     { id: 'podcast', name: 'Podcast Thumbnail', icon: Mic },
     { id: 'quote', name: 'Social Quote', icon: Quote },
     { id: 'presentation', name: 'Presentatie', icon: IconPresentation },
-    { id: 'animated-presentation', name: 'Animatie Slide (1:1)', icon: Play },
     { id: 'animated-social', name: 'Animatie Social (4:5)', icon: Play },
     { id: 'article', name: 'Artikel / Blog OG', icon: FileText },
 ] as const;
@@ -33,7 +32,7 @@ interface QuoteData {
 export default function GeneratorPanel() {
     const [activeTab, setActiveTab] = useState<GeneratorType>('carousel');
     const [isGenerating, setIsGenerating] = useState(false);
-    const [generatedResults, setGeneratedResults] = useState<string[]>([]);
+    const [generatedResults, setGeneratedResults] = useState<any[]>([]);
     const [currentResolution, setCurrentResolution] = useState('1080x1080');
     const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
     const [quoteData, setQuoteData] = useState<QuoteData | null>(null);
@@ -45,7 +44,7 @@ export default function GeneratorPanel() {
         setGeneratedResults([]);
         setCurrentResolution(formData.resolution || '1080x1080');
 
-        if (formData.type === 'animated-presentation' || formData.type === 'animated-social') {
+        if (formData.type === 'animated-social') {
             setAnimatedData({
                 type: formData.type,
                 titleText: formData.topic,
@@ -301,7 +300,7 @@ export default function GeneratorPanel() {
                                 <p className="text-ct-mint font-medium animate-pulse">Genereren...</p>
                                 <p className="text-xs text-ct-light/40 mt-2 text-balance">AI genereert achtergrond + vector poppetje (~20-30 sec)</p>
                             </div>
-                        ) : (activeTab === 'animated-presentation' || activeTab === 'animated-social') && animatedData ? (
+                        ) : activeTab === 'animated-social' && animatedData ? (
                             <div className="w-full flex-1 bg-[#111] p-0 md:p-4 rounded-xl border border-white/10 shadow-2xl overflow-hidden flex flex-col items-center justify-center">
                                 <Player
                                     component={MySlide}
@@ -328,57 +327,102 @@ export default function GeneratorPanel() {
                             </div>
                         ) : generatedResults.length > 0 ? (
                             <div className="w-full flex flex-col items-center gap-6 overflow-y-auto">
-                                {generatedResults.map((src, i) => (
-                                    <div key={i} className="relative group w-full max-w-lg">
-                                        <div ref={isQuoteType ? quotePreviewRef : undefined}
-                                            className={`relative w-full ${aspectClass} rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-black`}>
-                                            {/* Background image */}
-                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                            <img src={src} alt={`Generated result ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                                {generatedResults.map((item, i) => {
+                                    const isAnimated = typeof item === 'object' && item.type === 'animated';
+                                    const src = isAnimated ? null : (typeof item === 'string' ? item : item.data);
 
-                                            {/* Client-side text overlay for quotes */}
-                                            {isQuoteType && quoteData && (
-                                                <div className="absolute inset-0 flex flex-col items-center justify-center px-[8%] pointer-events-none">
-                                                    {/* Decorative quote mark */}
-                                                    <div className="absolute top-[10%] left-[5%] text-[15vw] font-serif text-[#2ECC71] opacity-30 leading-none select-none" style={{ fontSize: 'clamp(60px, 15cqi, 160px)' }}>
-                                                        &ldquo;
-                                                    </div>
-
-                                                    {/* Quote text */}
-                                                    <p className="text-white font-heading font-black text-center lowercase leading-tight drop-shadow-lg"
-                                                        style={{ fontSize: 'clamp(16px, 5cqi, 52px)', letterSpacing: '-0.5px' }}>
-                                                        {quoteData.text}
-                                                    </p>
-
-                                                    {/* Attribution */}
-                                                    {quoteData.attribution && (
-                                                        <p className="mt-4 text-white/55 tracking-widest uppercase text-center"
-                                                            style={{ fontSize: 'clamp(8px, 2.2cqi, 24px)' }}>
-                                                            — {quoteData.attribution}
-                                                        </p>
-                                                    )}
-
-                                                    {/* Subtle brand name at top */}
-                                                    <div className="absolute top-[3%] left-[5%] font-heading font-black text-white/20 tracking-[3px] lowercase"
-                                                        style={{ fontSize: '14px' }}>
-                                                        cryptotakkies
-                                                    </div>
+                                    if (isAnimated) {
+                                        return (
+                                            <div key={i} className="relative group w-full max-w-lg mb-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-bold text-ct-mint bg-ct-mint/10 border border-ct-mint/30 px-2 py-1 rounded-md uppercase tracking-wide">Slide {i + 1} (Animatie)</span>
                                                 </div>
-                                            )}
-                                        </div>
+                                                <div className="w-full flex-1 bg-[#111] p-0 md:p-4 rounded-xl border border-white/10 shadow-lg overflow-hidden flex flex-col items-center justify-center">
+                                                    <Player
+                                                        component={MySlide}
+                                                        inputProps={{
+                                                            titleText: item.titleText || item.title || 'Crypto Takkies',
+                                                            subtitleText: item.subtitleText || item.subtitle || '',
+                                                            theme: item.theme || 'dark',
+                                                        }}
+                                                        durationInFrames={150}
+                                                        fps={30}
+                                                        compositionWidth={1080}
+                                                        compositionHeight={1080}
+                                                        style={{
+                                                            width: '100%',
+                                                            maxWidth: '500px',
+                                                            aspectRatio: '1/1',
+                                                            borderRadius: '8px'
+                                                        }}
+                                                        controls
+                                                        loop
+                                                        autoPlay
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    }
 
-                                        {/* Download button per image */}
-                                        <button onClick={() => handleDownload(src, i)}
-                                            className="absolute top-3 right-3 bg-black/70 hover:bg-black/90 backdrop-blur-sm text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/10"
-                                            title="Download">
-                                            {downloadingIndex === i ? (
-                                                <CheckCircle className="h-4 w-4 text-ct-mint" />
-                                            ) : (
-                                                <Download className="h-4 w-4" />
-                                            )}
-                                        </button>
-                                    </div>
-                                ))}
+                                    if (src) {
+                                        return (
+                                            <div key={i} className="relative group w-full max-w-lg mb-4">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-bold text-white/50 bg-white/5 border border-white/10 px-2 py-1 rounded-md uppercase tracking-wide">Slide {i + 1} (Static)</span>
+                                                </div>
+                                                <div ref={isQuoteType ? quotePreviewRef : undefined}
+                                                    className={`relative w-full ${aspectClass} rounded-xl overflow-hidden border border-white/10 shadow-lg bg-black`}>
+                                                    {/* Background image */}
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={src} alt={`Generated result ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+
+                                                    {/* Client-side text overlay for quotes */}
+                                                    {isQuoteType && quoteData && (
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center px-[8%] pointer-events-none">
+                                                            {/* Decorative quote mark */}
+                                                            <div className="absolute top-[10%] left-[5%] text-[15vw] font-serif text-[#2ECC71] opacity-30 leading-none select-none" style={{ fontSize: 'clamp(60px, 15cqi, 160px)' }}>
+                                                                &ldquo;
+                                                            </div>
+
+                                                            {/* Quote text */}
+                                                            <p className="text-white font-heading font-black text-center lowercase leading-tight drop-shadow-lg"
+                                                                style={{ fontSize: 'clamp(16px, 5cqi, 52px)', letterSpacing: '-0.5px' }}>
+                                                                {quoteData.text}
+                                                            </p>
+
+                                                            {/* Attribution */}
+                                                            {quoteData.attribution && (
+                                                                <p className="mt-4 text-white/55 tracking-widest uppercase text-center"
+                                                                    style={{ fontSize: 'clamp(8px, 2.2cqi, 24px)' }}>
+                                                                    — {quoteData.attribution}
+                                                                </p>
+                                                            )}
+
+                                                            {/* Subtle brand name at top */}
+                                                            <div className="absolute top-[3%] left-[5%] font-heading font-black text-white/20 tracking-[3px] lowercase"
+                                                                style={{ fontSize: '14px' }}>
+                                                                cryptotakkies
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Download button per image */}
+                                                <button onClick={() => handleDownload(src, i)}
+                                                    className="absolute top-10 right-3 bg-black/70 hover:bg-black/90 backdrop-blur-sm text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/10"
+                                                    title="Download">
+                                                    {downloadingIndex === i ? (
+                                                        <CheckCircle className="h-4 w-4 text-ct-mint" />
+                                                    ) : (
+                                                        <Download className="h-4 w-4" />
+                                                    )}
+                                                </button>
+                                            </div>
+                                        );
+                                    }
+
+                                    return null;
+                                })}
                             </div>
                         ) : (
                             <>

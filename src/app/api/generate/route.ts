@@ -7,6 +7,7 @@ import {
     buildCarouselPrompt,
     buildQuotePrompt,
     buildArticlePrompt,
+    buildPresentationPrompt,
 } from "@/lib/ct-prompts";
 
 /**
@@ -29,6 +30,38 @@ function getRandomVectorPath(): string {
 }
 
 // ─── Gemini AI ─────────────────────────────────────────────────
+async function generateTextWithGemini(
+    apiKey: string,
+    prompt: string,
+    model: string = "gemini-2.0-flash"
+): Promise<string | null> {
+    try {
+        const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                }),
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[gemini-text] ${model} error:`, errorText);
+            return null;
+        }
+
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        return text || null;
+    } catch (e) {
+        console.error(`[gemini-text] ${model} failed:`, e);
+        return null;
+    }
+}
+
 async function generateWithGemini(
     apiKey: string,
     prompt: string,
@@ -261,10 +294,50 @@ export async function POST(request: Request) {
             );
         }
 
-        const images: string[] = [];
+        const images: any[] = [];
         const models: string[] = [];
 
         switch (type) {
+            case "presentation": {
+                const prompt = buildPresentationPrompt(topic);
+                const textResponse = await generateTextWithGemini(apiKey, prompt);
+
+                if (!textResponse) {
+                    return NextResponse.json(
+                        { success: false, error: "Kon de presentatiestructuur niet genereren." },
+                        { status: 500 }
+                    );
+                }
+
+                try {
+                    const cleanText = textResponse.replace(/```json/g, "").replace(/```/g, "").trim();
+                    const slides = JSON.parse(cleanText);
+
+                    for (const slide of slides) {
+                        if (slide.type === "animated") {
+                            images.push(slide);
+                        } else if (slide.type === "static") {
+                            const imgPrompt = slide.prompt || buildCarouselPrompt(topic, "Slide", "", 1, 1);
+                            const result = await generateImage(apiKey, imgPrompt);
+                            if (result) {
+                                images.push({
+                                    type: "image",
+                                    data: `data:${result.mimeType};base64,${result.base64}`
+                                });
+                                models.push(result.model);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to parse JSON presentation from Gemini", textResponse);
+                    return NextResponse.json(
+                        { success: false, error: "Ongeldige presentatie-data ontvangen van Gemini." },
+                        { status: 500 }
+                    );
+                }
+                break;
+            }
+
             case "podcast": {
                 const ep = episodeNumber || 1;
                 const sub = subtitle || "Cryptotakkies Podcast";

@@ -205,3 +205,34 @@ export function buildQuotePrompt(
 export function buildArticlePrompt(topic: string): string {
     return ARTICLE_PROMPT.replace("[TOPIC]", topic);
 }
+
+// ─── Presentation (Mixed) ───────────────────────────────────────
+export const PRESENTATION_PROMPT = `Generate a presentation based on the following topic/paper: [TOPIC].
+
+You are an expert presentation designer for Cryptotakkies.
+\${CT_BRAND}
+
+Create a structured JSON array of slides. Mix dynamic animated text slides with static background slides.
+
+REQUIREMENTS:
+1. Return ONLY a valid JSON array. No markdown formatting (like \`\`\`json), no extra text. Just the raw array.
+2. The JSON array should contain objects of two types:
+   A. Animated Slide (Text-focused, for key points/titles)
+      {"type": "animated", "titleText": "Slide Title", "subtitleText": "Shorter subtitle", "theme": "dark" | "light" | "accent"}
+   B. Static Background (Visual-focused, atmospheric backgrounds)
+      {"type": "static", "prompt": "A prompt for an AI image generator to create a static background image. It MUST follow the Cryptotakkies brand style (flat vector characters, dark green/mint colors, clean, no text or typography)."}
+
+3. Generate between 4 to 8 slides in a logical storytelling flow.
+4. Start with an animated title slide. Alternate between animated text slides and static visual slides where appropriate.
+
+Example output format:
+[
+  {"type": "animated", "titleText": "Wat is Bitcoin?", "subtitleText": "Een korte introductie", "theme": "dark"},
+  {"type": "static", "prompt": "Deep dark green (#1B5E3B) solid fill with subtle grain texture. A flat vector character in mint green clothing looking at a glowing coin."},
+  {"type": "animated", "titleText": "Decentralisatie", "subtitleText": "Geen centrale macht", "theme": "accent"}
+]
+`;
+
+export function buildPresentationPrompt(topic: string): string {
+    return PRESENTATION_PROMPT.replace("[TOPIC]", topic);
+}
