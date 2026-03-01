@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { Layers, Mic, Presentation as IconPresentation, FileText, Quote, Image as ImageIcon, Download, CheckCircle } from 'lucide-react';
+import { Layers, Mic, Presentation as IconPresentation, FileText, Quote, Image as ImageIcon, Download, CheckCircle, Play } from 'lucide-react';
+import { Player } from '@remotion/player';
+import { MySlide } from '@/remotion/MySlide';
 import GeneratorForm from './GeneratorForm';
 
 const GENERATOR_TYPES = [
     { id: 'carousel', name: 'LinkedIn Carousel', icon: Layers },
     { id: 'podcast', name: 'Podcast Thumbnail', icon: Mic },
-    { id: 'presentation', name: 'Presentatie', icon: IconPresentation },
-    { id: 'article', name: 'Artikel / Blog OG', icon: FileText },
     { id: 'quote', name: 'Social Quote', icon: Quote },
+    { id: 'presentation', name: 'Presentatie', icon: IconPresentation },
+    { id: 'animated-presentation', name: 'Animatie Slide (1:1)', icon: Play },
+    { id: 'animated-social', name: 'Animatie Social (4:5)', icon: Play },
+    { id: 'article', name: 'Artikel / Blog OG', icon: FileText },
 ] as const;
 
 type GeneratorType = typeof GENERATOR_TYPES[number]['id'];
@@ -33,12 +37,26 @@ export default function GeneratorPanel() {
     const [currentResolution, setCurrentResolution] = useState('1080x1080');
     const [downloadingIndex, setDownloadingIndex] = useState<number | null>(null);
     const [quoteData, setQuoteData] = useState<QuoteData | null>(null);
+    const [animatedData, setAnimatedData] = useState<any>(null);
     const quotePreviewRef = useRef<HTMLDivElement>(null);
 
     const handleGenerate = async (formData: any) => {
         setIsGenerating(true);
         setGeneratedResults([]);
         setCurrentResolution(formData.resolution || '1080x1080');
+
+        if (formData.type === 'animated-presentation' || formData.type === 'animated-social') {
+            setAnimatedData({
+                type: formData.type,
+                titleText: formData.topic,
+                subtitleText: formData.subtitle,
+                theme: formData.variant,
+            });
+            setIsGenerating(false);
+            return;
+        } else {
+            setAnimatedData(null);
+        }
 
         // Store quote data for client-side text overlay
         if (formData.type === 'quote') {
@@ -282,6 +300,31 @@ export default function GeneratorPanel() {
                                 <div className="w-16 h-16 rounded-full border-4 border-ct-mint/20 border-t-ct-mint animate-spin mb-4"></div>
                                 <p className="text-ct-mint font-medium animate-pulse">Genereren...</p>
                                 <p className="text-xs text-ct-light/40 mt-2 text-balance">AI genereert achtergrond + vector poppetje (~20-30 sec)</p>
+                            </div>
+                        ) : (activeTab === 'animated-presentation' || activeTab === 'animated-social') && animatedData ? (
+                            <div className="w-full flex-1 bg-[#111] p-0 md:p-4 rounded-xl border border-white/10 shadow-2xl overflow-hidden flex flex-col items-center justify-center">
+                                <Player
+                                    component={MySlide}
+                                    inputProps={{
+                                        titleText: animatedData.titleText,
+                                        subtitleText: animatedData.subtitleText,
+                                        theme: animatedData.theme,
+                                    }}
+                                    durationInFrames={150}
+                                    fps={30}
+                                    compositionWidth={1080}
+                                    compositionHeight={activeTab === 'animated-social' ? 1350 : 1080}
+                                    style={{
+                                        width: '100%',
+                                        maxWidth: activeTab === 'animated-social' ? '400px' : '500px',
+                                        aspectRatio: activeTab === 'animated-social' ? '4/5' : '1/1',
+                                        borderRadius: '8px'
+                                    }}
+                                    controls
+                                    loop
+                                    autoPlay
+                                />
+                                <p className="text-xs text-ct-light/50 mt-4">Live Preview (Opname via scherm is op dit moment nodig totdat de MP4 renderer backend gereed is)</p>
                             </div>
                         ) : generatedResults.length > 0 ? (
                             <div className="w-full flex flex-col items-center gap-6 overflow-y-auto">

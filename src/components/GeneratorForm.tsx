@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 type FormProps = {
-    type: 'carousel' | 'podcast' | 'presentation' | 'article' | 'quote';
+    type: 'carousel' | 'podcast' | 'presentation' | 'article' | 'quote' | 'animated-presentation' | 'animated-social';
     onSubmit: (data: any) => void;
     isGenerating: boolean;
 };
@@ -195,6 +195,36 @@ export default function GeneratorForm({ type, onSubmit, isGenerating }: FormProp
                             </div>
                             <span className="text-sm text-ct-light/80">Handwriting font (Gochi Hand)</span>
                         </label>
+                    </>
+                );
+
+            case 'animated-presentation':
+            case 'animated-social':
+                return (
+                    <>
+                        <div className="space-y-2">
+                            <label className={labelClass}>Titel Slide</label>
+                            <input
+                                type="text"
+                                value={topic}
+                                onChange={(e) => setTopic(e.target.value)}
+                                className={inputClass}
+                                placeholder="Bijv. De 3 fases van de markt"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={labelClass}>Ondertitel Slide</label>
+                            <input
+                                type="text"
+                                value={subtitle}
+                                onChange={(e) => setSubtitle(e.target.value)}
+                                className={inputClass}
+                                placeholder="Bijv. Wat doet smart money?"
+                                required
+                            />
+                        </div>
+                        {renderVariantSelect()}
                     </>
                 );
 
